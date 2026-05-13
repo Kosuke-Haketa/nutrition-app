@@ -1,0 +1,345 @@
+const DAILY_TARGETS = {
+  calories:      { label: "カロリー",   unit: "kcal", target: 2000 },
+  protein_g:     { label: "タンパク質", unit: "g",    target: 50 },
+  fat_g:         { label: "脂質",       unit: "g",    target: 60 },
+  carbs_g:       { label: "炭水化物",   unit: "g",    target: 250 },
+  fiber_g:       { label: "食物繊維",   unit: "g",    target: 21 },
+  salt_g:        { label: "食塩",       unit: "g",    target: 7.5 },
+};
+
+const VITAMIN_TARGETS = {
+  vitamin_a_ug:   { label: "ビタミンA",  unit: "μg",  target: 900 },
+  vitamin_d_ug:   { label: "ビタミンD",  unit: "μg",  target: 8.5 },
+  vitamin_e_mg:   { label: "ビタミンE",  unit: "mg",  target: 6 },
+  vitamin_k_ug:   { label: "ビタミンK",  unit: "μg",  target: 150 },
+  vitamin_b1_mg:  { label: "ビタミンB1", unit: "mg",  target: 1.2 },
+  vitamin_b2_mg:  { label: "ビタミンB2", unit: "mg",  target: 1.4 },
+  vitamin_b6_mg:  { label: "ビタミンB6", unit: "mg",  target: 1.4 },
+  vitamin_b12_ug: { label: "ビタミンB12",unit: "μg",  target: 2.4 },
+  vitamin_c_mg:   { label: "ビタミンC",  unit: "mg",  target: 100 },
+  folate_ug:      { label: "葉酸",       unit: "μg",  target: 240 },
+};
+
+const ALL_TARGETS = { ...DAILY_TARGETS, ...VITAMIN_TARGETS };
+
+let currentFoods = [];
+let currentTotal = {};
+let imageBase64 = "";
+let imageMediaType = "image/jpeg";
+
+// 日付を今日に初期化
+document.getElementById("mealDate").value = todayStr();
+
+function todayStr() {
+  return new Date().toLocaleDateString("sv"); // YYYY-MM-DD
+}
+
+function fmtDate(str) {
+  const d = new Date(str + "T00:00:00");
+  return d.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "short" });
+}
+
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+}
+
+// --- タブ ---
+function switchTab(name) {
+  document.querySelectorAll(".tab").forEach((t, i) => {
+    t.classList.toggle("active", ["analyze", "history"][i] === name);
+  });
+  document.getElementById("tab-analyze").style.display = name === "analyze" ? "" : "none";
+  document.getElementById("tab-history").style.display  = name === "history"  ? "" : "none";
+  if (name === "history") loadHistory();
+}
+
+// --- 画像 ---
+document.getElementById("fileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) loadFile(file);
+});
+
+const uploadArea = document.getElementById("uploadArea");
+uploadArea.addEventListener("dragover", (e) => { e.preventDefault(); uploadArea.classList.add("drag-over"); });
+uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("drag-over"));
+uploadArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  uploadArea.classList.remove("drag-over");
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith("image/")) loadFile(file);
+});
+
+function openFilePicker() {
+  const input = document.getElementById("fileInput");
+  input.removeAttribute("capture");
+  input.click();
+}
+
+function openCamera() {
+  const input = document.getElementById("fileInput");
+  input.setAttribute("capture", "environment");
+  input.click();
+}
+
+function loadFile(file) {
+  imageMediaType = "image/jpeg";
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    imageBase64 = await compressImage(e.target.result);
+    document.getElementById("previewImg").src = imageBase64;
+    document.getElementById("uploadArea").style.display = "none";
+    document.getElementById("previewArea").style.display = "block";
+    document.getElementById("analyzeBtn").disabled = false;
+    document.getElementById("result").style.display = "none";
+    document.getElementById("errorBox").style.display = "none";
+    document.getElementById("saveMsg").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+
+// APIの上限(5MB)を超えないようCanvasでリサイズ
+function compressImage(dataUrl, maxBytes = 3.5 * 1024 * 1024) {
+  return new Promise((resolve) => {
+    const b64 = dataUrl.split(",")[1] || dataUrl;
+    // base64→バイト数は約0.75倍
+    if (b64.length * 0.75 <= maxBytes) { resolve(dataUrl); return; }
+
+    const img = new window.Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.max(w, h) > 2048) {
+        const r = 2048 / Math.max(w, h);
+        w = Math.round(w * r); h = Math.round(h * r);
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+      let quality = 0.85;
+      let result;
+      do {
+        result = canvas.toDataURL("image/jpeg", quality);
+        quality -= 0.1;
+      } while ((result.split(",")[1].length * 0.75) > maxBytes && quality > 0.3);
+      resolve(result);
+    };
+    img.src = dataUrl;
+  });
+}
+
+function resetImage() {
+  imageBase64 = "";
+  document.getElementById("uploadArea").style.display = "block";
+  document.getElementById("previewArea").style.display = "none";
+  document.getElementById("analyzeBtn").disabled = true;
+  document.getElementById("result").style.display = "none";
+  document.getElementById("fileInput").value = "";
+}
+
+// --- 解析 ---
+async function analyze() {
+  document.getElementById("loading").style.display = "block";
+  document.getElementById("analyzeBtn").disabled = true;
+  document.getElementById("errorBox").style.display = "none";
+  document.getElementById("result").style.display = "none";
+  document.getElementById("saveMsg").style.display = "none";
+
+  try {
+    const res = await fetch("/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: imageBase64, mediaType: imageMediaType }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || "解析に失敗しました");
+    currentFoods = data.foods;
+    currentTotal = data.total;
+    renderResult(data);
+    document.getElementById("saveBtn").disabled = false;
+  } catch (err) {
+    const box = document.getElementById("errorBox");
+    box.textContent = err.message;
+    box.style.display = "block";
+  } finally {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("analyzeBtn").disabled = false;
+  }
+}
+
+function recalculate() {
+  const inputs = document.querySelectorAll(".food-amount");
+  const keys = Object.keys(ALL_TARGETS);
+  currentFoods.forEach((food, i) => {
+    const newAmount = parseFloat(inputs[i].value) || food.amount_g;
+    const ratio = food.amount_g > 0 ? newAmount / food.amount_g : 1;
+    food.amount_g = newAmount;
+    keys.forEach((k) => { if (food[k] !== undefined) food[k] = parseFloat((food[k] * ratio).toFixed(1)); });
+  });
+  currentTotal = sumNutrients(currentFoods, keys);
+  renderNutrientBars(currentTotal, "macroSection", "vitaminSection");
+}
+
+function sumNutrients(foods, keys) {
+  const total = {};
+  keys.forEach((k) => { total[k] = parseFloat(foods.reduce((acc, f) => acc + (f[k] || 0), 0).toFixed(1)); });
+  return total;
+}
+
+// --- 保存 ---
+async function saveResult() {
+  const date = document.getElementById("mealDate").value || todayStr();
+  const btn = document.getElementById("saveBtn");
+  btn.disabled = true;
+  try {
+    const res = await fetch("/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, foods: currentFoods, total: currentTotal }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error("保存に失敗しました");
+    document.getElementById("saveMsg").style.display = "block";
+  } catch (err) {
+    alert(err.message);
+    btn.disabled = false;
+  }
+}
+
+// --- 履歴 ---
+async function loadHistory() {
+  const el = document.getElementById("historyList");
+  el.innerHTML = "<p style='color:#999;padding:24px 0;text-align:center'>読み込み中...</p>";
+  try {
+    const res = await fetch("/api/history");
+    const days = await res.json();
+    if (days.length === 0) {
+      el.innerHTML = "<p class='history-empty'>まだ記録がありません。<br>食事を解析して保存してみましょう。</p>";
+      return;
+    }
+    el.innerHTML = "";
+    days.forEach((day) => el.appendChild(buildDayCard(day)));
+  } catch {
+    el.innerHTML = "<p class='history-empty'>読み込みに失敗しました。</p>";
+  }
+}
+
+function buildDayCard(day) {
+  const card = document.createElement("div");
+  card.className = "day-card";
+
+  const calPct = Math.min(Math.round((day.total.calories || 0) / DAILY_TARGETS.calories.target * 100), 200);
+  const calColor = calPct >= 120 ? "#f44336" : calPct >= 80 ? "#ff9800" : "#4caf50";
+  const isToday = day.date === todayStr();
+
+  card.innerHTML = `
+    <div class="day-header" onclick="toggleDay(this)">
+      <span class="day-date">${fmtDate(day.date)}${isToday ? " <span style='color:#4caf50;font-size:12px'>今日</span>" : ""}</span>
+      <span class="day-meta">${day.meal_count}食 · ${Math.round(day.total.calories || 0)} kcal</span>
+      <span class="day-chevron">▼</span>
+    </div>
+    <div class="day-calorie-bar">
+      <div class="day-calorie-fill" style="width:${Math.min(calPct, 100)}%;background:${calColor}"></div>
+    </div>
+    <div class="day-body">
+      <h3 class="section-label">1日合計 — エネルギー・主要栄養素</h3>
+      <div class="macro-bars"></div>
+      <h3 class="section-label">1日合計 — ビタミン</h3>
+      <div class="vitamin-bars"></div>
+      <h3 class="section-label" style="margin-top:18px">食事記録</h3>
+      <div class="meal-list"></div>
+    </div>
+  `;
+
+  const body = card.querySelector(".day-body");
+  renderBarsInto(body.querySelector(".macro-bars"), DAILY_TARGETS, day.total);
+  renderBarsInto(body.querySelector(".vitamin-bars"), VITAMIN_TARGETS, day.total);
+
+  const mealList = body.querySelector(".meal-list");
+  day.meals.forEach((meal) => mealList.appendChild(buildMealBlock(meal, card, day)));
+
+  return card;
+}
+
+function buildMealBlock(meal, card, day) {
+  const block = document.createElement("div");
+  block.className = "meal-block";
+  block.dataset.mealId = meal.id;
+
+  const foodNames = meal.foods.map((f) => `${esc(f.name)} ${f.amount_g}g`).join("、");
+  block.innerHTML = `
+    <div class="meal-block-header">
+      <span class="meal-time">${fmtTime(meal.created_at)}</span>
+      <span class="meal-kcal">${Math.round(meal.total.calories || 0)} kcal</span>
+      <button class="btn-delete" onclick="deleteMeal(${meal.id}, this)">削除</button>
+    </div>
+    <div class="meal-foods">${foodNames}</div>
+  `;
+  return block;
+}
+
+async function deleteMeal(id, btn) {
+  if (!confirm("この食事記録を削除しますか？")) return;
+  btn.disabled = true;
+  try {
+    await fetch(`/api/meals/${id}`, { method: "DELETE" });
+    loadHistory();
+  } catch {
+    alert("削除に失敗しました");
+    btn.disabled = false;
+  }
+}
+
+function toggleDay(header) {
+  header.closest(".day-card").classList.toggle("open");
+}
+
+// --- 描画共通 ---
+function renderResult(data) {
+  renderFoodList(data.foods);
+  renderNutrientBars(data.total, "macroSection", "vitaminSection");
+  document.getElementById("result").style.display = "block";
+}
+
+function renderFoodList(foods) {
+  const el = document.getElementById("foodList");
+  el.innerHTML = "";
+  foods.forEach((food, i) => {
+    const row = document.createElement("div");
+    row.className = "food-item";
+    row.innerHTML = `
+      <span class="food-name">${esc(food.name)}</span>
+      <input class="food-amount" type="number" value="${food.amount_g}" min="0" data-index="${i}">
+      <span class="food-unit">g &nbsp; ${food.calories} kcal</span>
+    `;
+    el.appendChild(row);
+  });
+}
+
+function renderNutrientBars(total, macroId, vitaminId) {
+  renderBarsInto(document.getElementById(macroId), DAILY_TARGETS, total);
+  renderBarsInto(document.getElementById(vitaminId), VITAMIN_TARGETS, total);
+}
+
+function renderBarsInto(container, targets, total) {
+  container.innerHTML = "";
+  Object.entries(targets).forEach(([key, meta]) => {
+    const value = total[key] || 0;
+    const pct = meta.target > 0 ? Math.min((value / meta.target) * 100, 200) : 0;
+    const displayPct = Math.round((value / meta.target) * 100);
+    const cls = displayPct >= 120 ? "red" : displayPct >= 80 ? "yellow" : "green";
+    const color = cls === "red" ? "#f44336" : cls === "yellow" ? "#ff9800" : "#4caf50";
+
+    const row = document.createElement("div");
+    row.className = "nutrient-row";
+    row.innerHTML = `
+      <span class="nutrient-label">${esc(meta.label)}</span>
+      <div class="bar-wrap"><div class="bar-fill ${cls}" style="width:${Math.min(pct, 100)}%"></div></div>
+      <span class="nutrient-pct" style="color:${color}">${displayPct}%</span>
+      <span class="nutrient-val">${r1(value)} ${esc(meta.unit)} / ${meta.target}</span>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function r1(v) { return Math.round(v * 10) / 10; }
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }

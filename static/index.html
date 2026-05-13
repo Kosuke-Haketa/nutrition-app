@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>栄養バランス判定</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>栄養バランス判定</h1>
+
+    <!-- タブ -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('analyze')">解析</button>
+      <button class="tab" onclick="switchTab('history')">履歴</button>
+    </div>
+
+    <!-- 解析タブ -->
+    <div id="tab-analyze">
+      <!-- 日付 -->
+      <div class="date-row">
+        <label for="mealDate">日付</label>
+        <input type="date" id="mealDate">
+      </div>
+
+      <!-- 画像アップロード -->
+      <div class="upload-area" id="uploadArea">
+        <input type="file" id="fileInput" accept="image/*" hidden>
+        <p>画像をドラッグ&amp;ドロップ</p>
+        <p class="sub">または</p>
+        <div class="upload-buttons">
+          <button class="btn-secondary" onclick="openFilePicker()">ファイルを選択</button>
+          <button class="btn-secondary" onclick="openCamera()">カメラで撮影</button>
+        </div>
+      </div>
+
+      <!-- プレビュー -->
+      <div class="preview-area" id="previewArea" style="display:none">
+        <img id="previewImg" alt="食事の画像">
+        <button class="btn-link" onclick="resetImage()">画像を変更</button>
+      </div>
+
+      <button class="btn-primary" id="analyzeBtn" onclick="analyze()" disabled>解析する</button>
+
+      <!-- ローディング -->
+      <div class="loading" id="loading" style="display:none">
+        <div class="spinner"></div>
+        <p>Claude が画像を解析中...</p>
+      </div>
+
+      <!-- エラー -->
+      <div class="error" id="errorBox" style="display:none"></div>
+
+      <!-- 結果 -->
+      <div id="result" style="display:none">
+        <section class="card">
+          <h2>検出された食材</h2>
+          <div id="foodList"></div>
+          <button class="btn-secondary recalc" onclick="recalculate()">修正して再計算</button>
+        </section>
+
+        <section class="card">
+          <h2>栄養バランス（1食分）</h2>
+          <h3 class="section-label">エネルギー・主要栄養素</h3>
+          <div id="macroSection"></div>
+          <h3 class="section-label">ビタミン</h3>
+          <div id="vitaminSection"></div>
+        </section>
+
+        <button class="btn-save" id="saveBtn" onclick="saveResult()">この食事を保存する</button>
+        <div class="save-msg" id="saveMsg" style="display:none">保存しました</div>
+      </div>
+    </div>
+
+    <!-- 履歴タブ -->
+    <div id="tab-history" style="display:none">
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

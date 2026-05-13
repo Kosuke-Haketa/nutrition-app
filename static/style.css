@@ -1,0 +1,345 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  color: #1a1a1a;
+}
+
+/* タブ */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid #e0e0e0;
+}
+.tab {
+  padding: 8px 20px;
+  border: none;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #888;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab.active { color: #4caf50; border-bottom-color: #4caf50; }
+
+/* 日付入力 */
+.date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.date-row label { font-size: 14px; color: #555; font-weight: 600; }
+.date-row input[type="date"] {
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+/* アップロードエリア */
+.upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  background: #fff;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.upload-area.drag-over { border-color: #4caf50; background: #f0fdf4; }
+.upload-area p { color: #666; }
+.upload-area .sub { font-size: 13px; margin: 8px 0; }
+.upload-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+
+/* プレビュー */
+.preview-area {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: center;
+}
+.preview-area img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  display: block;
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: #4caf50;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 10px;
+}
+.btn-link:hover { text-decoration: underline; }
+
+/* ボタン */
+.btn-primary {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-primary:disabled { background: #b0bec5; cursor: not-allowed; }
+.btn-primary:not(:disabled):hover { background: #43a047; }
+
+.btn-secondary {
+  padding: 10px 18px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-secondary:hover { background: #f0f0f0; }
+
+.btn-save {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-save:hover { background: #1565c0; }
+.btn-save:disabled { background: #b0bec5; cursor: not-allowed; }
+
+.save-msg {
+  text-align: center;
+  color: #1976d2;
+  font-weight: 600;
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+/* ローディング */
+.loading {
+  text-align: center;
+  padding: 32px 0;
+  color: #666;
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4caf50;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* エラー */
+.error {
+  background: #fdecea;
+  color: #c62828;
+  padding: 14px 16px;
+  border-radius: 10px;
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+/* カード */
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 16px;
+}
+.card h2 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  color: #1a1a1a;
+}
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 10px;
+}
+
+/* 食材リスト */
+.food-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.food-item:last-child { border-bottom: none; }
+.food-name { flex: 1; font-size: 15px; }
+.food-amount {
+  width: 70px;
+  padding: 4px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: right;
+}
+.food-unit { font-size: 13px; color: #888; }
+
+.recalc { margin-top: 14px; display: block; width: 100%; }
+
+/* 栄養バー */
+.nutrient-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.nutrient-label {
+  width: 110px;
+  font-size: 13px;
+  color: #555;
+  flex-shrink: 0;
+}
+.bar-wrap {
+  flex: 1;
+  background: #f0f0f0;
+  border-radius: 99px;
+  height: 10px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+  min-width: 2px;
+}
+.bar-fill.green  { background: #4caf50; }
+.bar-fill.yellow { background: #ff9800; }
+.bar-fill.red    { background: #f44336; }
+
+.nutrient-pct {
+  width: 44px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+  flex-shrink: 0;
+}
+.nutrient-val {
+  width: 90px;
+  font-size: 12px;
+  color: #888;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* 履歴 */
+.history-empty {
+  text-align: center;
+  color: #999;
+  padding: 48px 0;
+  font-size: 15px;
+}
+
+.day-card {
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.day-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+.day-header:hover { background: #fafafa; }
+.day-date {
+  font-weight: 700;
+  font-size: 15px;
+  flex: 1;
+}
+.day-meta { font-size: 13px; color: #888; }
+.day-chevron {
+  font-size: 12px;
+  color: #bbb;
+  transition: transform 0.2s;
+}
+.day-card.open .day-chevron { transform: rotate(180deg); }
+
+.day-calorie-bar {
+  height: 6px;
+  background: #f0f0f0;
+  margin: 0 16px 14px;
+  border-radius: 99px;
+  overflow: hidden;
+}
+.day-calorie-fill {
+  height: 100%;
+  border-radius: 99px;
+}
+
+.day-body { display: none; padding: 0 16px 16px; border-top: 1px solid #f0f0f0; }
+.day-card.open .day-body { display: block; }
+
+.day-body .section-label { margin-top: 14px; }
+
+.meal-block {
+  background: #f8f8f8;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 10px;
+}
+.meal-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.meal-time { font-size: 13px; color: #888; }
+.meal-kcal { font-size: 13px; font-weight: 600; }
+.meal-foods { font-size: 13px; color: #555; line-height: 1.6; }
+.btn-delete {
+  background: none;
+  border: none;
+  color: #e53935;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.btn-delete:hover { background: #fdecea; }
