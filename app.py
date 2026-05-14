@@ -64,7 +64,10 @@ ANALYZE_PROMPT = """この食事の画像を分析し、以下のJSON形式の�
 def _connect():
     if USE_PG:
         import psycopg2
-        return psycopg2.connect(_DATABASE_URL)
+        url = _DATABASE_URL
+        if "sslmode" not in url:
+            url += ("&" if "?" in url else "?") + "sslmode=require"
+        return psycopg2.connect(url)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -211,9 +214,10 @@ def delete_meal(meal_id):
     return jsonify({"ok": True})
 
 
-if __name__ == "__main__":
+try:
     init_db()
-    app.run(host="0.0.0.0", port=8080)
+except Exception as e:
+    print(f"init_db warning: {e}")
 
-# Gunicorn エントリポイント（Render用）
-init_db()
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
