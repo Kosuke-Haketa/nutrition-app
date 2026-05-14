@@ -173,45 +173,56 @@ def analyze():
 
 @app.route("/save", methods=["POST"])
 def save():
-    data = request.get_json()
-    date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
-    _run(
-        f"INSERT INTO meals (date, foods, total, created_at) VALUES ({PH},{PH},{PH},{PH})",
-        (date,
-         json.dumps(data.get("foods", []), ensure_ascii=False),
-         json.dumps(data.get("total", {}), ensure_ascii=False),
-         datetime.now().isoformat()),
-    )
-    return jsonify({"ok": True})
+    try:
+        init_db()  # テーブルが存在しない場合に備えて毎回確認
+        data = request.get_json()
+        date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+        _run(
+            f"INSERT INTO meals (date, foods, total, created_at) VALUES ({PH},{PH},{PH},{PH})",
+            (date,
+             json.dumps(data.get("foods", []), ensure_ascii=False),
+             json.dumps(data.get("total", {}), ensure_ascii=False),
+             datetime.now().isoformat()),
+        )
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/history")
 def history():
-    rows = _rows("SELECT id, date, foods, total, created_at FROM meals ORDER BY date DESC, created_at ASC")
-    days = defaultdict(list)
-    for row in rows:
-        days[row["date"]].append({
-            "id": row["id"],
-            "foods": json.loads(row["foods"]),
-            "total": json.loads(row["total"]),
-            "created_at": row["created_at"],
-        })
-    result = []
-    for date in sorted(days.keys(), reverse=True):
-        meals = days[date]
-        result.append({
-            "date": date,
-            "meal_count": len(meals),
-            "total": aggregate_totals([m["total"] for m in meals]),
-            "meals": meals,
-        })
-    return jsonify(result)
+    try:
+        init_db()
+        rows = _rows("SELECT id, date, foods, total, created_at FROM meals ORDER BY date DESC, created_at ASC")
+        days = defaultdict(list)
+        for row in rows:
+            days[row["date"]].append({
+                "id": row["id"],
+                "foods": json.loads(row["foods"]),
+                "total": json.loads(row["total"]),
+                "created_at": row["created_at"],
+            })
+        result = []
+        for date in sorted(days.keys(), reverse=True):
+            meals = days[date]
+            result.append({
+                "date": date,
+                "meal_count": len(meals),
+                "total": aggregate_totals([m["total"] for m in meals]),
+                "meals": meals,
+            })
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/meals/<int:meal_id>", methods=["DELETE"])
 def delete_meal(meal_id):
-    _run(f"DELETE FROM meals WHERE id = {PH}", (meal_id,))
-    return jsonify({"ok": True})
+    try:
+        _run(f"DELETE FROM meals WHERE id = {PH}", (meal_id,))
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 try:
