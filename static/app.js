@@ -31,7 +31,10 @@ let imageMediaType = "image/jpeg";
 document.getElementById("mealDate").value = todayStr();
 
 function todayStr() {
-  return new Date().toLocaleDateString("sv"); // YYYY-MM-DD
+  const d = new Date();
+  return d.getFullYear() + "-" +
+    String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0");
 }
 
 function fmtDate(str) {
@@ -200,7 +203,9 @@ async function saveResult() {
     if (!data.ok) throw new Error("保存に失敗しました");
     document.getElementById("saveMsg").style.display = "block";
   } catch (err) {
-    alert(err.message);
+    const box = document.getElementById("errorBox");
+    box.textContent = "保存に失敗しました: " + err.message;
+    box.style.display = "block";
     btn.disabled = false;
   }
 }
