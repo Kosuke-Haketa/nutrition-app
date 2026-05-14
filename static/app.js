@@ -148,7 +148,7 @@ async function analyze() {
   document.getElementById("saveMsg").style.display = "none";
 
   try {
-    const res = await fetch("/analyze", {
+    const res = await fetch(window.location.origin + "/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ image: imageBase64, mediaType: imageMediaType }),
@@ -193,18 +193,32 @@ async function saveResult() {
   const date = document.getElementById("mealDate").value || todayStr();
   const btn = document.getElementById("saveBtn");
   btn.disabled = true;
+  const box = document.getElementById("errorBox");
+  box.style.display = "none";
+
+  let bodyStr;
   try {
-    const res = await fetch("/save", {
+    bodyStr = JSON.stringify({ date, foods: currentFoods, total: currentTotal });
+  } catch (e) {
+    box.textContent = "データ変換エラー: " + e.message;
+    box.style.display = "block";
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const url = window.location.origin + "/save";
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date, foods: currentFoods, total: currentTotal }),
+      body: bodyStr,
     });
-    const data = await res.json();
-    if (!data.ok) throw new Error("保存に失敗しました");
+    const text = await res.text();
+    const data = JSON.parse(text);
+    if (!data.ok) throw new Error("サーバーエラー: " + text);
     document.getElementById("saveMsg").style.display = "block";
   } catch (err) {
-    const box = document.getElementById("errorBox");
-    box.textContent = "保存に失敗しました: " + err.message;
+    box.textContent = "[" + err.name + "] " + err.message;
     box.style.display = "block";
     btn.disabled = false;
   }
@@ -215,7 +229,7 @@ async function loadHistory() {
   const el = document.getElementById("historyList");
   el.innerHTML = "<p style='color:#999;padding:24px 0;text-align:center'>読み込み中...</p>";
   try {
-    const res = await fetch("/api/history");
+    const res = await fetch(window.location.origin + "/api/history");
     const days = await res.json();
     if (days.length === 0) {
       el.innerHTML = "<p class='history-empty'>まだ記録がありません。<br>食事を解析して保存してみましょう。</p>";
@@ -286,7 +300,7 @@ async function deleteMeal(id, btn) {
   if (!confirm("この食事記録を削除しますか？")) return;
   btn.disabled = true;
   try {
-    await fetch(`/api/meals/${id}`, { method: "DELETE" });
+    await fetch(window.location.origin + `/api/meals/${id}`, { method: "DELETE" });
     loadHistory();
   } catch {
     alert("削除に失敗しました");
