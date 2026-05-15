@@ -329,5 +329,117 @@ nutrition-app/
   <tr><td>ビタミン推定</td><td>食品によって含有量のばらつきが大きく（特にビタミンA・Dは食材依存）、誤差が出やすい</td></tr>
 </table>
 
+<hr>
+
+<h2>⑥ ユーザーログイン機能（パスキー認証）の追加</h2>
+
+<h3>背景・目的</h3>
+<p>当初は認証なしで全ユーザーが同一DBを共有する構成だった。複数ユーザーが使えるよう、ニックネーム＋パスキー（WebAuthn/FIDO2）によるログイン機能を追加し、各ユーザーが自分の食事履歴のみ閲覧できるようにした。</p>
+
+<h3>認証方式の選定</h3>
+<table>
+  <tr><th>方式</th><th>採用</th><th>理由</th></tr>
+  <tr><td>パスキー（WebAuthn/FIDO2）</td><td><span class="badge-green">採用</span></td><td>パスワード不要・スマホのFace ID / Touch IDで完結。フィッシング耐性あり。iOS Safari / Chrome 対応済み</td></tr>
+  <tr><td>パスワード認証</td><td><span class="badge-red">不採用</span></td><td>パスワード管理の手間・ハッシュ保存・リセット機能など実装コストが高い</td></tr>
+  <tr><td>OAuth（Google等）</td><td><span class="badge-red">不採用</span></td><td>外部サービス依存・設定手順が複雑</td></tr>
+</table>
+
+<h3>追加したDB テーブル</h3>
+<table>
+  <tr><th>テーブル</th><th>カラム</th><th>内容</th></tr>
+  <tr><td rowspan="4">users</td><td>id</td><td>主キー</td></tr>
+  <tr><td>nickname</td><td>ユーザーが設定する表示名（UNIQUE）</td></tr>
+  <tr><td>user_handle</td><td>WebAuthn用のランダムID（64バイト hex）</td></tr>
+  <tr><td>created_at</td><td>登録日時</td></tr>
+  <tr><td rowspan="6">credentials</td><td>id</td><td>主キー</td></tr>
+  <tr><td>user_id</td><td>usersテーブルへの外部キー</td></tr>
+  <tr><td>credential_id</td><td>パスキーID（base64url・UNIQUE）</td></tr>
+  <tr><td>public_key</td><td>公開鍵（base64）</td></tr>
+  <tr><td>sign_count</td><td>リプレイ攻撃防止カウンタ</td></tr>
+  <tr><td>transports</td><td>対応トランスポート（JSON配列）</td></tr>
+  <tr><td colspan="2">meals（既存・変更）</td><td>user_id カラムを追加（NULL許容）。既存データは保持しつつ表示しない</td></tr>
+</table>
+
+<h3>追加した APIエンドポイント</h3>
+<table>
+  <tr><th>エンドポイント</th><th>処理内容</th></tr>
+  <tr><td><code>POST /api/auth/register/begin</code></td><td>ニックネームを受け取り、WebAuthn 登録オプション（challenge等）を生成してセッションに保存</td></tr>
+  <tr><td><code>POST /api/auth/register/complete</code></td><td>ブラウザからの credential を検証し、users・credentials テーブルにINSERT。セッション開始</td></tr>
+  <tr><td><code>POST /api/auth/login/begin</code></td><td>ニックネームから該当credentialを検索し、WebAuthn 認証オプションを生成</td></tr>
+  <tr><td><code>POST /api/auth/login/complete</code></td><td>アサーションを検証し、sign_count を更新。セッション開始</td></tr>
+  <tr><td><code>POST /api/auth/logout</code></td><td>セッションをクリア</td></tr>
+  <tr><td><code>GET /api/auth/me</code></td><td>現在のログイン状態とニックネームを返す</td></tr>
+</table>
+
+<h3>認証フロー（登録 / ログイン）</h3>
+<pre>
+【登録フロー】
+ブラウザ                          サーバー（Flask）
+  │  POST /api/auth/register/begin（nickname）
+  │ ─────────────────────────────────────►
+  │  ◄─ registration options（challenge）──
+  │
+  │  navigator.credentials.create(options)
+  │  → デバイス認証（Face ID / Touch ID）
+  │
+  │  POST /api/auth/register/complete（credential）
+  │ ─────────────────────────────────────►
+  │  verify → users + credentials INSERT
+  │  ◄─ {ok: true, nickname} ─────────────
+  │  → セッション開始・アプリ画面表示
+
+【ログインフロー】
+  │  POST /api/auth/login/begin（nickname）
+  │ ─────────────────────────────────────►
+  │  ◄─ authentication options（challenge）─
+  │
+  │  navigator.credentials.get(options)
+  │  → デバイス認証（Face ID / Touch ID）
+  │
+  │  POST /api/auth/login/complete（assertion）
+  │ ─────────────────────────────────────►
+  │  verify + sign_count 更新
+  │  ◄─ {ok: true, nickname} ─────────────
+  │  → セッション開始・アプリ画面表示
+</pre>
+
+<h3>使用ライブラリ</h3>
+<table>
+  <tr><th>場所</th><th>ライブラリ</th><th>役割</th></tr>
+  <tr><td>バックエンド（Python）</td><td>py-webauthn 2.1.0</td><td>WebAuthn 登録・認証オプション生成 / レスポンス検証</td></tr>
+  <tr><td>フロントエンド（JS）</td><td>@simplewebauthn/browser v13（CDN）</td><td><code>startRegistration()</code> / <code>startAuthentication()</code> でブラウザのWebAuthn APIを簡略化</td></tr>
+</table>
+
+<h3>追加した環境変数</h3>
+<table>
+  <tr><th>変数名</th><th>説明</th><th>ローカルのデフォルト</th></tr>
+  <tr><td><code>SECRET_KEY</code></td><td>Flaskセッション署名鍵（<code>openssl rand -hex 32</code> で生成）</td><td><code>dev-secret-key</code></td></tr>
+  <tr><td><code>RP_ID</code></td><td>WebAuthn の Relying Party ID（ホスト名のみ）</td><td><code>localhost</code></td></tr>
+  <tr><td><code>APP_ORIGIN</code></td><td>WebAuthn の expected origin（スキーム含む完全URL）</td><td><code>http://localhost:8080</code></td></tr>
+</table>
+
+<div class="note">
+  <strong>制約：</strong> WebAuthn は HTTPS 必須（localhost は例外）。Render は自動で HTTPS を提供するため本番環境では問題なし。<code>SECRET_KEY</code> を env var で固定しないと Render 再起動のたびに全ユーザーがログアウトされる。
+</div>
+
+<h3>⑦ インストール時のトラブル（Python環境）</h3>
+<table>
+  <tr><th>問題</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td><code>ModuleNotFoundError: No module named 'webauthn'</code></td>
+    <td>conda 環境や複数の Python が混在し、<code>webauthn</code> をインストールした Python と実行時の Python が異なる</td>
+    <td>仮想環境（venv）を作成して統一：<code>python3 -m venv venv &amp;&amp; source venv/bin/activate &amp;&amp; pip install -r requirements.txt</code></td>
+  </tr>
+  <tr>
+    <td><code>No matching distribution found for flask==3.1.0</code></td>
+    <td>venv が Python 3.7 で作成され、Flask 3.x の要件（Python 3.9+）を満たさない</td>
+    <td>CommandLineTools の Python 3.9 を明示指定して venv を再作成：<code>/Library/Developer/CommandLineTools/.../python3 -m venv venv</code></td>
+  </tr>
+</table>
+
+<div class="highlight">
+  <strong>教訓：</strong> macOS は Python 2.7 / 3.7 / 3.9 等が混在しやすい。開発時は必ず <code>python3 -m venv venv</code> で仮想環境を作り、<code>python3 --version</code> で 3.9+ であることを確認してから始める。
+</div>
+
 </body>
 </html>

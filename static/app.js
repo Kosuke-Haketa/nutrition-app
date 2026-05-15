@@ -1,3 +1,67 @@
+const DEFICIENCY_SUGGESTIONS = {
+  calories: {
+    foods:  ["ご飯", "パン", "パスタ", "バナナ", "ナッツ類"],
+    dishes: ["おにぎり", "カレーライス", "パスタ", "シリアル"],
+  },
+  protein_g: {
+    foods:  ["鶏むね肉", "卵", "豆腐", "納豆", "ツナ缶", "ギリシャヨーグルト"],
+    dishes: ["親子丼", "ゆで卵", "冷奴", "納豆ご飯", "豚しゃぶサラダ"],
+  },
+  fat_g: {
+    foods:  ["アボカド", "オリーブオイル", "ナッツ類", "チーズ", "鮭"],
+    dishes: ["アボカドサラダ", "ナッツ和え", "鮭のソテー"],
+  },
+  carbs_g: {
+    foods:  ["白米", "さつまいも", "パン", "うどん", "バナナ"],
+    dishes: ["おにぎり", "さつまいものスープ", "フルーツ盛り合わせ"],
+  },
+  fiber_g: {
+    foods:  ["ごぼう", "オートミール", "キャベツ", "ブロッコリー", "納豆", "アボカド"],
+    dishes: ["きんぴらごぼう", "野菜スープ", "ブロッコリーのごま和え"],
+  },
+  salt_g: { foods: [], dishes: [] },
+  vitamin_a_ug: {
+    foods:  ["人参", "レバー", "ほうれん草", "かぼちゃ", "小松菜"],
+    dishes: ["人参のきんぴら", "レバニラ炒め", "かぼちゃの煮物"],
+  },
+  vitamin_d_ug: {
+    foods:  ["鮭", "さんま", "いわし", "まいたけ", "しらす干し"],
+    dishes: ["焼き鮭", "さんまの塩焼き", "きのこのソテー"],
+  },
+  vitamin_e_mg: {
+    foods:  ["アーモンド", "アボカド", "うなぎ", "かぼちゃ", "ほうれん草"],
+    dishes: ["アーモンドサラダ", "うな丼", "かぼちゃのソテー"],
+  },
+  vitamin_k_ug: {
+    foods:  ["ほうれん草", "小松菜", "ブロッコリー", "納豆", "春菊"],
+    dishes: ["ほうれん草のおひたし", "小松菜炒め", "納豆ご飯"],
+  },
+  vitamin_b1_mg: {
+    foods:  ["豚肉", "玄米", "枝豆", "そら豆", "ナッツ類"],
+    dishes: ["豚肉の生姜焼き", "玄米ご飯", "枝豆"],
+  },
+  vitamin_b2_mg: {
+    foods:  ["レバー", "うなぎ", "卵", "納豆", "アーモンド"],
+    dishes: ["レバーの醤油炒め", "玉子焼き", "納豆ご飯"],
+  },
+  vitamin_b6_mg: {
+    foods:  ["鶏むね肉", "かつお", "バナナ", "ピスタチオ", "さつまいも"],
+    dishes: ["チキンソテー", "かつおのたたき", "バナナ"],
+  },
+  vitamin_b12_ug: {
+    foods:  ["しじみ", "あさり", "さんま", "レバー", "牡蠣"],
+    dishes: ["しじみの味噌汁", "あさりの酒蒸し", "牡蠣の鍋"],
+  },
+  vitamin_c_mg: {
+    foods:  ["ブロッコリー", "パプリカ", "キウイ", "イチゴ", "じゃがいも"],
+    dishes: ["ブロッコリーのごま和え", "パプリカサラダ", "フルーツヨーグルト"],
+  },
+  folate_ug: {
+    foods:  ["枝豆", "ほうれん草", "菜の花", "ブロッコリー", "アスパラガス"],
+    dishes: ["枝豆の塩茹で", "ほうれん草のソテー", "アスパラの炒め物"],
+  },
+};
+
 const DAILY_TARGETS = {
   calories:      { label: "カロリー",   unit: "kcal", target: 2000 },
   protein_g:     { label: "タンパク質", unit: "g",    target: 50 },
@@ -302,6 +366,7 @@ function recalculate() {
   });
   currentTotal = sumNutrients(currentFoods, keys);
   renderNutrientBars(currentTotal, "macroSection", "vitaminSection");
+  renderSuggestions(currentTotal);
 }
 
 function sumNutrients(foods, keys) {
@@ -438,6 +503,7 @@ function toggleDay(header) {
 function renderResult(data) {
   renderFoodList(data.foods);
   renderNutrientBars(data.total, "macroSection", "vitaminSection");
+  renderSuggestions(data.total);
   document.getElementById("result").style.display = "block";
 }
 
@@ -484,6 +550,49 @@ function renderBarsInto(container, targets, total) {
 
 function r1(v) { return Math.round(v * 10) / 10; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function detectDeficientNutrients(total) {
+  const deficient = [];
+  Object.entries(ALL_TARGETS).forEach(([key, meta]) => {
+    const suggestion = DEFICIENCY_SUGGESTIONS[key];
+    if (!suggestion || (suggestion.foods.length === 0 && suggestion.dishes.length === 0)) return;
+    const value = total[key] || 0;
+    const pct = meta.target > 0 ? (value / meta.target) * 100 : 100;
+    if (pct < 80) {
+      deficient.push({ key, label: meta.label, pct: Math.round(pct), suggestion });
+    }
+  });
+  deficient.sort((a, b) => a.pct - b.pct);
+  return deficient.slice(0, 3);
+}
+
+function renderSuggestions(total) {
+  const container = document.getElementById("suggestionSection");
+  if (!container) return;
+  const deficient = detectDeficientNutrients(total);
+  container.innerHTML = "";
+  if (deficient.length === 0) {
+    container.innerHTML = '<p class="suggestion-ok">全ての栄養素が適正または十分です！</p>';
+    return;
+  }
+  deficient.forEach(({ label, pct, suggestion }) => {
+    const card = document.createElement("div");
+    card.className = "suggestion-item";
+    const foodTags = suggestion.foods.map(f => `<span class="suggestion-tag suggestion-tag--food">${esc(f)}</span>`).join("");
+    const dishTags = suggestion.dishes.map(d => `<span class="suggestion-tag suggestion-tag--dish">${esc(d)}</span>`).join("");
+    card.innerHTML = `
+      <div class="suggestion-header">
+        <span class="suggestion-nutrient">${esc(label)}</span>
+        <span class="suggestion-pct">${pct}%</span>
+      </div>
+      <div class="suggestion-body">
+        ${foodTags ? `<div class="suggestion-group"><span class="suggestion-group-label">食材</span>${foodTags}</div>` : ""}
+        ${dishTags ? `<div class="suggestion-group"><span class="suggestion-group-label">料理</span>${dishTags}</div>` : ""}
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
 
 // 起動
 boot();
