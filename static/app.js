@@ -385,7 +385,7 @@ async function saveResult() {
 
   let bodyStr;
   try {
-    bodyStr = JSON.stringify({ date, foods: currentFoods, total: currentTotal });
+    bodyStr = JSON.stringify({ date, foods: currentFoods, total: currentTotal, image: imageBase64 });
   } catch (e) {
     box.textContent = "データ変換エラー: " + e.message;
     box.style.display = "block";
@@ -472,12 +472,16 @@ function buildMealBlock(meal, card, day) {
   block.dataset.mealId = meal.id;
 
   const foodNames = meal.foods.map((f) => `${esc(f.name)} ${f.amount_g}g`).join("、");
+  const imgHtml = meal.image
+    ? `<img class="meal-thumb" src="${esc(meal.image)}" alt="食事画像" loading="lazy">`
+    : "";
   block.innerHTML = `
     <div class="meal-block-header">
       <span class="meal-time">${fmtTime(meal.created_at)}</span>
       <span class="meal-kcal">${Math.round(meal.total.calories || 0)} kcal</span>
       <button class="btn-delete" onclick="deleteMeal(${meal.id}, this)">削除</button>
     </div>
+    ${imgHtml}
     <div class="meal-foods">${foodNames}</div>
   `;
   return block;
@@ -566,6 +570,11 @@ function detectDeficientNutrients(total) {
   return deficient.slice(0, 3);
 }
 
+function pickRandom(arr, n) {
+  const shuffled = arr.slice().sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, n);
+}
+
 function renderSuggestions(total) {
   const container = document.getElementById("suggestionSection");
   if (!container) return;
@@ -578,8 +587,10 @@ function renderSuggestions(total) {
   deficient.forEach(({ label, pct, suggestion }) => {
     const card = document.createElement("div");
     card.className = "suggestion-item";
-    const foodTags = suggestion.foods.map(f => `<span class="suggestion-tag suggestion-tag--food">${esc(f)}</span>`).join("");
-    const dishTags = suggestion.dishes.map(d => `<span class="suggestion-tag suggestion-tag--dish">${esc(d)}</span>`).join("");
+    const foods = pickRandom(suggestion.foods, 3);
+    const dishes = pickRandom(suggestion.dishes, 2);
+    const foodTags = foods.map(f => `<span class="suggestion-tag suggestion-tag--food">${esc(f)}</span>`).join("");
+    const dishTags = dishes.map(d => `<span class="suggestion-tag suggestion-tag--dish">${esc(d)}</span>`).join("");
     card.innerHTML = `
       <div class="suggestion-header">
         <span class="suggestion-nutrient">${esc(label)}</span>

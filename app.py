@@ -151,11 +151,16 @@ def init_db():
     # user_id カラムを meals に追加（既存DBとの互換）
     if USE_PG:
         _run("ALTER TABLE meals ADD COLUMN IF NOT EXISTS user_id INTEGER")
+        _run("ALTER TABLE meals ADD COLUMN IF NOT EXISTS image TEXT")
     else:
-        try:
-            _run("ALTER TABLE meals ADD COLUMN user_id INTEGER")
-        except Exception:
-            pass
+        for col_sql in [
+            "ALTER TABLE meals ADD COLUMN user_id INTEGER",
+            "ALTER TABLE meals ADD COLUMN image TEXT",
+        ]:
+            try:
+                _run(col_sql)
+            except Exception:
+                pass
 
 def aggregate_totals(totals_list):
     keys = {k for t in totals_list for k in t}
@@ -412,13 +417,15 @@ def save():
         init_db()
         data = request.get_json()
         date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+        image = data.get("image") or ""
         _run(
-            f"INSERT INTO meals (date, foods, total, created_at, user_id) VALUES ({PH},{PH},{PH},{PH},{PH})",
+            f"INSERT INTO meals (date, foods, total, created_at, user_id, image) VALUES ({PH},{PH},{PH},{PH},{PH},{PH})",
             (date,
              json.dumps(data.get("foods", []), ensure_ascii=False),
              json.dumps(data.get("total", {}), ensure_ascii=False),
              datetime.now().isoformat(),
-             user["id"]),
+             user["id"],
+             image),
         )
         return jsonify({"ok": True})
     except Exception as e:
@@ -433,7 +440,7 @@ def history():
             return jsonify({"error": "ログインが必要です"}), 401
         init_db()
         rows = _rows(
-            f"SELECT id, date, foods, total, created_at FROM meals WHERE user_id = {PH} ORDER BY date DESC, created_at ASC",
+            f"SELECT id, date, foods, total, created_at, image FROM meals WHERE user_id = {PH} ORDER BY date DESC, created_at ASC",
             (user["id"],),
         )
         days = defaultdict(list)
@@ -443,6 +450,7 @@ def history():
                 "foods": json.loads(row["foods"]),
                 "total": json.loads(row["total"]),
                 "created_at": row["created_at"],
+                "image": row.get("image") or "",
             })
         result = []
         for date in sorted(days.keys(), reverse=True):
