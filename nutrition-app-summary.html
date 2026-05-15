@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>栄養バランス判定アプリ — 構成・デプロイ要約</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px;
+      color: #1a1a1a;
+      line-height: 1.7;
+    }
+    h1 { font-size: 1.6rem; border-bottom: 3px solid #2563eb; padding-bottom: 12px; margin-bottom: 8px; }
+    h2 { font-size: 1.2rem; border-left: 4px solid #2563eb; padding-left: 12px; margin-top: 36px; color: #1d4ed8; }
+    h3 { font-size: 1rem; margin-top: 24px; color: #1a1a1a; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; }
+    th { background: #eff6ff; color: #1d4ed8; text-align: left; padding: 8px 12px; border: 1px solid #bfdbfe; }
+    td { padding: 8px 12px; border: 1px solid #e2e8f0; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+    ul { padding-left: 20px; margin: 8px 0; }
+    li { margin: 4px 0; }
+    pre {
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 16px;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      line-height: 1.6;
+      font-family: "Menlo", "Monaco", monospace;
+    }
+    hr { border: none; border-top: 1px solid #e2e8f0; margin: 32px 0; }
+    strong { color: #1d4ed8; }
+    .badge {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .badge-green {
+      display: inline-block;
+      background: #dcfce7;
+      color: #166534;
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .badge-orange {
+      display: inline-block;
+      background: #ffedd5;
+      color: #9a3412;
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .badge-red {
+      display: inline-block;
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .note {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 0.9rem;
+    }
+    .highlight {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 10px 16px;
+      margin: 12px 0;
+      font-size: 0.9rem;
+    }
+    .step {
+      display: flex;
+      gap: 12px;
+      margin: 10px 0;
+      align-items: flex-start;
+    }
+    .step-num {
+      background: #2563eb;
+      color: white;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: bold;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>栄養バランス判定アプリ<br>システム構成・デプロイ要約</h1>
+<p style="color:#666;font-size:0.9rem">作成日: 2026年5月14日</p>
+
+<h2>アプリ概要</h2>
+<p>食事の写真を撮るだけで、Claude Vision AIが食材と量を自動認識し、カロリー・主要栄養素・ビタミン10種の1日の推奨量に対する達成率を表示するWebアプリ。食事記録を日付ごとに蓄積・振り返ることができる。</p>
+
+<div class="highlight">
+  <strong>核心の設計方針：</strong> 外部の食品データベースAPIを使わず、Claude Vision APIが画像認識・量推定・栄養素計算を1回のAPIコールで一括処理。追加サービス契約不要でシンプルに完結。
+</div>
+
+<hr>
+
+<h2>ユーザーフロー</h2>
+<div class="step"><div class="step-num">1</div><div>食事の写真をスマホで撮影（またはギャラリーから選択）</div></div>
+<div class="step"><div class="step-num">2</div><div>アプリに画像をアップロード（ドラッグ&ドロップ / ファイル選択 / カメラ撮影）</div></div>
+<div class="step"><div class="step-num">3</div><div>「解析する」をタップ → Claude が食材名・推定グラム数・栄養素を JSON で返す</div></div>
+<div class="step"><div class="step-num">4</div><div>食材のグラム数を手動修正して「再計算」も可能</div></div>
+<div class="step"><div class="step-num">5</div><div>カロリー・PFC・食物繊維・食塩・ビタミン10種の達成率バーを表示</div></div>
+<div class="step"><div class="step-num">6</div><div>「この食事を保存する」で日付付きで記録。履歴タブで1日ごとに振り返り可能</div></div>
+
+<hr>
+
+<h2>技術スタック</h2>
+<table>
+  <tr><th>レイヤー</th><th>技術</th><th>役割</th></tr>
+  <tr><td>フロントエンド</td><td>HTML / CSS / Vanilla JS</td><td>UI・画像アップロード・結果表示</td></tr>
+  <tr><td>バックエンド</td><td>Python / Flask + Gunicorn</td><td>APIプロキシ・DB操作</td></tr>
+  <tr><td>AI 画像解析</td><td>Anthropic Claude Sonnet 4.6（Vision）</td><td>食材認識・量推定・栄養素計算</td></tr>
+  <tr><td>データベース（ローカル）</td><td>SQLite</td><td>ローカル開発時の食事記録保存</td></tr>
+  <tr><td>データベース（本番）</td><td>PostgreSQL（Supabase）</td><td>クラウド上の食事記録永続化</td></tr>
+  <tr><td>ホスティング</td><td>Render.com（Web Service）</td><td>Webアプリの公開・常時稼働</td></tr>
+  <tr><td>ソースコード管理</td><td>GitHub</td><td>コード管理・Renderへの自動デプロイ</td></tr>
+</table>
+
+<hr>
+
+<h2>システム構成図</h2>
+<pre>
+【ユーザー（スマホ / PC）】
+        │  HTTPS
+        ▼
+┌─────────────────────────────┐
+│     Render.com（無料枠）      │
+│  Flask + Gunicorn (Python)   │
+│                              │
+│  /          → index.html     │
+│  /analyze   → Claude API呼出 │
+│  /save      → DB保存         │
+│  /api/history → DB取得       │
+└────────┬────────────┬────────┘
+         │            │
+         ▼            ▼
+  Anthropic API   Supabase
+  (Claude Vision)  (PostgreSQL)
+  食材・栄養素推定   食事記録の永続化
+</pre>
+
+<hr>
+
+<h2>判定する栄養素一覧</h2>
+<table>
+  <tr><th>カテゴリ</th><th>栄養素</th><th>1日の目標値（成人標準）</th></tr>
+  <tr><td rowspan="6">エネルギー・主要栄養素</td><td>カロリー</td><td>2,000 kcal</td></tr>
+  <tr><td>タンパク質</td><td>50 g</td></tr>
+  <tr><td>脂質</td><td>60 g</td></tr>
+  <tr><td>炭水化物</td><td>250 g</td></tr>
+  <tr><td>食物繊維</td><td>21 g</td></tr>
+  <tr><td>食塩相当量</td><td>7.5 g</td></tr>
+  <tr><td rowspan="10">ビタミン</td><td>ビタミンA</td><td>900 μg RAE</td></tr>
+  <tr><td>ビタミンD</td><td>8.5 μg</td></tr>
+  <tr><td>ビタミンE</td><td>6 mg</td></tr>
+  <tr><td>ビタミンK</td><td>150 μg</td></tr>
+  <tr><td>ビタミンB1</td><td>1.2 mg</td></tr>
+  <tr><td>ビタミンB2</td><td>1.4 mg</td></tr>
+  <tr><td>ビタミンB6</td><td>1.4 mg</td></tr>
+  <tr><td>ビタミンB12</td><td>2.4 μg</td></tr>
+  <tr><td>ビタミンC</td><td>100 mg</td></tr>
+  <tr><td>葉酸</td><td>240 μg</td></tr>
+</table>
+<p style="font-size:0.85rem;color:#666">※ 目標値は厚生労働省「日本人の食事摂取基準 2020年版」に基づく成人標準値</p>
+
+<hr>
+
+<h2>デプロイまでのプロセスと課題対応</h2>
+
+<h3>① ローカル起動の問題（port 5000 競合）</h3>
+<table>
+  <tr><th>問題</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td><span class="badge-red">Error</span> localhost:5000 に接続できない（403）</td>
+    <td>macOS の AirPlay Receiver が port 5000 を占有</td>
+    <td>Flask のポートを <strong>8080</strong> に変更</td>
+  </tr>
+</table>
+
+<h3>② スマホからのアクセス</h3>
+<table>
+  <tr><th>問題</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td>スマホからアクセスできない</td>
+    <td>Flask が <code>127.0.0.1</code>（localhost のみ）でリッスン</td>
+    <td><code>host="0.0.0.0"</code> に変更し、LAN上のIPアドレス（192.168.1.105）で接続</td>
+  </tr>
+  <tr>
+    <td>「ファイルを選択」でカメラが起動してしまう</td>
+    <td><code>input</code> に <code>capture="environment"</code> が常時付与されていた</td>
+    <td>「ファイルを選択」と「カメラで撮影」でボタンを分離し、<code>capture</code> 属性をカメラボタン押下時のみ付与</td>
+  </tr>
+</table>
+
+<h3>③ 画像サイズ超過エラー</h3>
+<table>
+  <tr><th>問題</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td><span class="badge-red">Error</span> image exceeds 5 MB maximum</td>
+    <td>スマホのカメラ写真が Anthropic API の上限（5MB）を超過</td>
+    <td>JavaScript の Canvas API でアップロード前に <strong>2048px以下・3.5MB以下</strong> にリサイズ</td>
+  </tr>
+</table>
+
+<h3>④ クラウドデプロイ（Render）</h3>
+<table>
+  <tr><th>問題</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td>Blueprint でカード登録を求められる</td>
+    <td>PostgreSQL を含む Blueprint はカード情報が必要</td>
+    <td>Blueprint を使わず <strong>Web Service のみ</strong> 手動作成。DBは <strong>Supabase</strong>（無料・カード不要）を利用</td>
+  </tr>
+  <tr>
+    <td><span class="badge-red">Exit status 1</span> デプロイ失敗</td>
+    <td>Supabase への接続に SSL が必要 / モジュール読み込み時の <code>init_db()</code> がクラッシュ</td>
+    <td>接続URLに <code>?sslmode=require</code> を付加。<code>init_db()</code> を <code>try/except</code> で保護</td>
+  </tr>
+  <tr>
+    <td>GitHub push が認証エラー</td>
+    <td>GitHub がパスワード認証を廃止</td>
+    <td>Personal Access Token（PAT）を発行して認証</td>
+  </tr>
+</table>
+
+<h3>⑤ 保存機能のエラー（3段階で解決）</h3>
+<table>
+  <tr><th>順序</th><th>エラーメッセージ</th><th>原因</th><th>解決策</th></tr>
+  <tr>
+    <td>1回目</td>
+    <td><code>The string did not match the expected pattern.</code></td>
+    <td>iOS Safari で <code>toLocaleDateString("sv")</code> が <code>YYYY-MM-DD</code> 形式を返さず、<code>input[type="date"]</code> へのセットが失敗</td>
+    <td><code>todayStr()</code> を <code>getFullYear()</code> + <code>padStart</code> による手動文字列生成に変更。fetch の相対URL（<code>/save</code>）も <code>window.location.origin + "/save"</code> に統一</td>
+  </tr>
+  <tr>
+    <td>2回目</td>
+    <td><code>[SyntaxError] JSON Parse error: Unrecognized token '&lt;'</code></td>
+    <td>サーバーが JSON でなく HTML エラーページを返していた。起動時の <code>init_db()</code> が失敗して <code>meals</code> テーブルが未作成のまま INSERT が走り 500 エラー</td>
+    <td>全 DB エンドポイントを <code>try/except</code> で囲み JSON エラーを返すよう修正。各リクエスト冒頭で <code>init_db()</code> を再実行してテーブル存在を保証</td>
+  </tr>
+  <tr>
+    <td>3回目</td>
+    <td><code>connection to server at "db.xxx.supabase.co" port 5432 failed: Network is unreachable</code></td>
+    <td>Render 無料枠が IPv6 に非対応。Supabase の直接接続URL（<code>db.xxx.supabase.co:5432</code>）が IPv6 アドレスに解決されて疎通不可</td>
+    <td>Supabase の <strong>接続プーラー（Supavisor）</strong> の Transaction mode URL（<code>aws-0-ap-northeast-1.pooler.supabase.com:6543</code>）に切り替え。Render の環境変数 <code>DATABASE_URL</code> を更新して解決</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>教訓：</strong> Render 無料枠 + Supabase の組み合わせでは、Supabase の直接接続URLではなく必ず<strong>接続プーラー（Supavisor）のURLを使う</strong>こと。直接接続は IPv6 解決になりやすく Render から到達できない。
+</div>
+
+<hr>
+
+<h2>ファイル構成</h2>
+<pre>
+nutrition-app/
+├── app.py               # Flask バックエンド（API・DB・画像圧縮）
+├── requirements.txt     # 依存パッケージ（Flask, anthropic, gunicorn, psycopg2-binary, Pillow）
+├── render.yaml          # Render デプロイ設定
+├── .env                 # APIキー（ローカル用・Gitに含めない）
+├── .gitignore           # .env / nutrition.db を除外
+└── static/
+    ├── index.html       # メイン画面（タブ UI）
+    ├── style.css        # スタイル
+    └── app.js           # 画像処理・API呼出・結果描画・履歴管理
+</pre>
+
+<hr>
+
+<h2>インフラ費用</h2>
+<table>
+  <tr><th>サービス</th><th>用途</th><th>費用</th><th>制限</th></tr>
+  <tr><td>Render.com（Web Service）</td><td>Webアプリホスティング</td><td><span class="badge-green">無料</span></td><td>月750時間・15分無操作でスリープ</td></tr>
+  <tr><td>Supabase（PostgreSQL）</td><td>食事記録DB</td><td><span class="badge-green">無料</span></td><td>500MB・2プロジェクトまで</td></tr>
+  <tr><td>Anthropic API</td><td>Claude Vision（画像解析）</td><td>従量課金</td><td>画像1枚あたり約$0.003〜0.01</td></tr>
+  <tr><td>GitHub</td><td>ソースコード管理</td><td><span class="badge-green">無料</span></td><td>—</td></tr>
+</table>
+
+<div class="note">
+  <strong>Render 無料枠の注意：</strong> 15分間アクセスがないとインスタンスがスリープし、次のアクセス時に30〜50秒の起動時間が発生する。頻繁に使う場合は有料プラン（$7/月）へのアップグレードを検討。
+</div>
+
+<hr>
+
+<h2>DB 設計（meals テーブル）</h2>
+<table>
+  <tr><th>カラム</th><th>型</th><th>内容</th></tr>
+  <tr><td>id</td><td>SERIAL / INTEGER</td><td>主キー（自動採番）</td></tr>
+  <tr><td>date</td><td>TEXT</td><td>食事日（YYYY-MM-DD）</td></tr>
+  <tr><td>foods</td><td>TEXT (JSON)</td><td>食材リスト（名前・グラム数・栄養素）</td></tr>
+  <tr><td>total</td><td>TEXT (JSON)</td><td>1食の栄養素合計</td></tr>
+  <tr><td>created_at</td><td>TEXT</td><td>登録日時（ISO形式）</td></tr>
+</table>
+
+<hr>
+
+<h2>制約・精度について</h2>
+<table>
+  <tr><th>項目</th><th>内容</th></tr>
+  <tr><td>量の推定精度</td><td>画像からの盛り付け量推定は ±20〜30% 程度の誤差あり。手動修正機能で補完可能</td></tr>
+  <tr><td>栄養素の精度</td><td>Claude の内蔵知識に基づく参考値。公式の食品成分データベースとは異なる場合あり</td></tr>
+  <tr><td>複合料理</td><td>カレー・シチューなどは食材分解が難しく、料理単位での推定になる</td></tr>
+  <tr><td>ビタミン推定</td><td>食品によって含有量のばらつきが大きく（特にビタミンA・Dは食材依存）、誤差が出やすい</td></tr>
+</table>
+
+</body>
+</html>

@@ -5,10 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>栄養バランス判定</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@simplewebauthn/browser@13/dist/bundle/index.es5.umd.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>栄養バランス判定</h1>
+
+  <!-- ログイン画面 -->
+  <div id="loginScreen" class="login-overlay" style="display:none">
+    <div class="login-card">
+      <h1 class="login-title">栄養バランス判定</h1>
+      <p class="login-sub">パスキーでログインして<br>食事記録を始めましょう</p>
+      <div class="login-form">
+        <label class="login-label" for="nicknameInput">ニックネーム</label>
+        <input type="text" id="nicknameInput" class="login-input" placeholder="例: たろう" autocomplete="username webauthn" maxlength="20">
+        <div id="loginError" class="login-error" style="display:none"></div>
+        <button class="btn-passkey" id="btnRegister" onclick="registerPasskey()">パスキーで登録</button>
+        <button class="btn-passkey btn-passkey-login" id="btnLogin" onclick="loginPasskey()">パスキーでログイン</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- メインアプリ -->
+  <div class="container" id="appScreen" style="display:none">
+    <div class="app-header">
+      <h1>栄養バランス判定</h1>
+      <div class="user-info">
+        <span id="userNickname" class="user-name"></span>
+        <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+      </div>
+    </div>
 
     <!-- タブ -->
     <div class="tabs">

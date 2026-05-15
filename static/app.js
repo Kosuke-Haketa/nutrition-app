@@ -27,8 +27,130 @@ let currentTotal = {};
 let imageBase64 = "";
 let imageMediaType = "image/jpeg";
 
-// 日付を今日に初期化
-document.getElementById("mealDate").value = todayStr();
+// --- 認証 ---
+
+async function boot() {
+  try {
+    const res = await fetch(window.location.origin + "/api/auth/me");
+    const data = await res.json();
+    if (data.logged_in) {
+      showApp(data.nickname);
+    } else {
+      showLogin();
+    }
+  } catch {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("appScreen").style.display = "none";
+}
+
+function showApp(nickname) {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("appScreen").style.display = "block";
+  document.getElementById("userNickname").textContent = nickname;
+  document.getElementById("mealDate").value = todayStr();
+}
+
+function loginError(msg) {
+  const el = document.getElementById("loginError");
+  el.textContent = msg;
+  el.style.display = "block";
+}
+
+function loginErrorClear() {
+  document.getElementById("loginError").style.display = "none";
+}
+
+async function registerPasskey() {
+  loginErrorClear();
+  const nickname = document.getElementById("nicknameInput").value.trim();
+  if (!nickname) { loginError("ニックネームを入力してください"); return; }
+
+  if (!window.SimpleWebAuthnBrowser) {
+    loginError("このブラウザはパスキーに対応していません");
+    return;
+  }
+
+  try {
+    const optRes = await fetch(window.location.origin + "/api/auth/register/begin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname }),
+    });
+    const optData = await optRes.json();
+    if (!optRes.ok) { loginError(optData.error || "登録を開始できませんでした"); return; }
+
+    const credential = await SimpleWebAuthnBrowser.startRegistration({ optionsJSON: optData });
+
+    const verRes = await fetch(window.location.origin + "/api/auth/register/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(credential),
+    });
+    const verData = await verRes.json();
+    if (!verRes.ok || !verData.ok) { loginError(verData.error || "登録に失敗しました"); return; }
+
+    showApp(verData.nickname);
+  } catch (err) {
+    if (err.name === "InvalidStateError") {
+      loginError("このデバイスにはすでにパスキーが登録されています");
+    } else if (err.name === "NotAllowedError") {
+      loginError("パスキーの登録がキャンセルされました");
+    } else {
+      loginError(err.message || "登録中にエラーが発生しました");
+    }
+  }
+}
+
+async function loginPasskey() {
+  loginErrorClear();
+  const nickname = document.getElementById("nicknameInput").value.trim();
+  if (!nickname) { loginError("ニックネームを入力してください"); return; }
+
+  if (!window.SimpleWebAuthnBrowser) {
+    loginError("このブラウザはパスキーに対応していません");
+    return;
+  }
+
+  try {
+    const optRes = await fetch(window.location.origin + "/api/auth/login/begin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname }),
+    });
+    const optData = await optRes.json();
+    if (!optRes.ok) { loginError(optData.error || "ログインを開始できませんでした"); return; }
+
+    const assertion = await SimpleWebAuthnBrowser.startAuthentication({ optionsJSON: optData });
+
+    const verRes = await fetch(window.location.origin + "/api/auth/login/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(assertion),
+    });
+    const verData = await verRes.json();
+    if (!verRes.ok || !verData.ok) { loginError(verData.error || "ログインに失敗しました"); return; }
+
+    showApp(verData.nickname);
+  } catch (err) {
+    if (err.name === "NotAllowedError") {
+      loginError("パスキーの認証がキャンセルされました");
+    } else {
+      loginError(err.message || "ログイン中にエラーが発生しました");
+    }
+  }
+}
+
+async function doLogout() {
+  await fetch(window.location.origin + "/api/auth/logout", { method: "POST" });
+  showLogin();
+}
+
+// --- ユーティリティ ---
 
 function todayStr() {
   const d = new Date();
@@ -362,3 +484,6 @@ function renderBarsInto(container, targets, total) {
 
 function r1(v) { return Math.round(v * 10) / 10; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+// 起動
+boot();

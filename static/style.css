@@ -8,6 +8,135 @@ body {
   line-height: 1.6;
 }
 
+/* ---- ログイン画面 ---- */
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #e8f5e9 0%, #f5f5f5 60%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+}
+
+.login-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 36px 28px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  text-align: center;
+}
+
+.login-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+
+.login-sub {
+  font-size: 14px;
+  color: #888;
+  margin-bottom: 28px;
+  line-height: 1.7;
+}
+
+.login-form { text-align: left; }
+
+.login-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.login-input {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid #ddd;
+  border-radius: 10px;
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 16px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.login-input:focus { border-color: #4caf50; }
+
+.login-error {
+  background: #fdecea;
+  color: #c62828;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+}
+
+.btn-passkey {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-bottom: 10px;
+  background: #4caf50;
+  color: #fff;
+}
+.btn-passkey:hover { background: #43a047; }
+.btn-passkey:last-child { margin-bottom: 0; }
+
+.btn-passkey-login {
+  background: #fff;
+  color: #4caf50;
+  border: 1.5px solid #4caf50;
+}
+.btn-passkey-login:hover { background: #f0fdf4; }
+
+/* ---- アプリヘッダー ---- */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.app-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 0;
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-name {
+  font-size: 13px;
+  color: #555;
+  font-weight: 600;
+}
+.btn-logout {
+  padding: 5px 12px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #888;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-logout:hover { background: #f0f0f0; }
+
+/* ---- 既存スタイル ---- */
 .container {
   max-width: 680px;
   margin: 0 auto;
