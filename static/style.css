@@ -557,3 +557,32 @@ h1 {
   background: #e3f2fd;
   color: #1565c0;
 }
+
+/* ---- バランススコア ---- */
+.balance-variance {
+  font-size: 16px;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.balance-hint {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.balance-rank {
+  font-size: 14px;
+  color: #999;
+}
+
+.balance-rank--revealed {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.balance-avg {
+  font-size: 13px;
+  font-weight: 400;
+  color: #666;
+}

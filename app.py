@@ -152,10 +152,12 @@ def init_db():
     if USE_PG:
         _run("ALTER TABLE meals ADD COLUMN IF NOT EXISTS user_id INTEGER")
         _run("ALTER TABLE meals ADD COLUMN IF NOT EXISTS image TEXT")
+        _run("ALTER TABLE meals ADD COLUMN IF NOT EXISTS variance REAL")
     else:
         for col_sql in [
             "ALTER TABLE meals ADD COLUMN user_id INTEGER",
             "ALTER TABLE meals ADD COLUMN image TEXT",
+            "ALTER TABLE meals ADD COLUMN variance REAL",
         ]:
             try:
                 _run(col_sql)
@@ -418,16 +420,27 @@ def save():
         data = request.get_json()
         date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
         image = data.get("image") or ""
+        variance = data.get("variance")
         _run(
-            f"INSERT INTO meals (date, foods, total, created_at, user_id, image) VALUES ({PH},{PH},{PH},{PH},{PH},{PH})",
+            f"INSERT INTO meals (date, foods, total, created_at, user_id, image, variance) VALUES ({PH},{PH},{PH},{PH},{PH},{PH},{PH})",
             (date,
              json.dumps(data.get("foods", []), ensure_ascii=False),
              json.dumps(data.get("total", {}), ensure_ascii=False),
              datetime.now().isoformat(),
              user["id"],
-             image),
+             image,
+             variance),
         )
-        return jsonify({"ok": True})
+        ranking_info = {}
+        if variance is not None:
+            rows = _rows(
+                f"SELECT variance FROM meals WHERE variance IS NOT NULL ORDER BY variance ASC"
+            )
+            all_v = [float(r["variance"]) for r in rows]
+            rank = sum(1 for v in all_v if v < float(variance)) + 1
+            avg_v = round(sum(all_v) / len(all_v), 1) if all_v else 0
+            ranking_info = {"rank": rank, "total": len(all_v), "avg_variance": avg_v}
+        return jsonify({"ok": True, **ranking_info})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 

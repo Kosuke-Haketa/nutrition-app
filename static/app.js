@@ -385,7 +385,7 @@ async function saveResult() {
 
   let bodyStr;
   try {
-    bodyStr = JSON.stringify({ date, foods: currentFoods, total: currentTotal, image: imageBase64 });
+    bodyStr = JSON.stringify({ date, foods: currentFoods, total: currentTotal, image: imageBase64, variance: calculateVariance(currentTotal) });
   } catch (e) {
     box.textContent = "データ変換エラー: " + e.message;
     box.style.display = "block";
@@ -403,6 +403,13 @@ async function saveResult() {
     const text = await res.text();
     const data = JSON.parse(text);
     if (!data.ok) throw new Error("サーバーエラー: " + text);
+    if (data.rank !== undefined) {
+      const el = document.getElementById("rankingResult");
+      if (el) {
+        el.innerHTML = `全体ランキング: <strong>${data.rank}位 / ${data.total}件中</strong><br><span class="balance-avg">全体平均ばらつき: ${data.avg_variance.toLocaleString()}</span>`;
+        el.classList.add("balance-rank--revealed");
+      }
+    }
     document.getElementById("saveMsg").style.display = "block";
   } catch (err) {
     box.textContent = "[" + err.name + "] " + err.message;
@@ -508,6 +515,7 @@ function renderResult(data) {
   renderFoodList(data.foods);
   renderNutrientBars(data.total, "macroSection", "vitaminSection");
   renderSuggestions(data.total);
+  renderBalanceScore(data.total);
   document.getElementById("result").style.display = "block";
 }
 
@@ -554,6 +562,27 @@ function renderBarsInto(container, targets, total) {
 
 function r1(v) { return Math.round(v * 10) / 10; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+function calculateVariance(total) {
+  const pcts = Object.entries(ALL_TARGETS).map(([key, meta]) => {
+    const value = total[key] || 0;
+    return meta.target > 0 ? (value / meta.target) * 100 : 0;
+  });
+  const mu = pcts.reduce((a, b) => a + b, 0) / pcts.length;
+  const variance = pcts.reduce((acc, p) => acc + Math.pow(p - mu, 2), 0) / pcts.length;
+  return Math.round(variance * 10) / 10;
+}
+
+function renderBalanceScore(total) {
+  const container = document.getElementById("balanceScoreSection");
+  if (!container) return;
+  const v = calculateVariance(total);
+  container.innerHTML = `
+    <div class="balance-variance">栄養素のばらつき: <strong>${v.toLocaleString()}</strong></div>
+    <div class="balance-hint">（ばらつきの数値が小さいほどバランスが良い）</div>
+    <div class="balance-rank" id="rankingResult">保存するとランキングが表示されます</div>
+  `;
+}
 
 function detectDeficientNutrients(total) {
   const deficient = [];
