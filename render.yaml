@@ -9,3 +9,5 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: SLACK_WEBHOOK_URL
+        sync: false

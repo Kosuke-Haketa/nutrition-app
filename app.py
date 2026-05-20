@@ -7,6 +7,8 @@ import sqlite3
 from collections import defaultdict
 from datetime import datetime
 
+import requests as http_requests
+
 import webauthn
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -35,6 +37,7 @@ USE_PG = bool(_DATABASE_URL)
 RP_ID      = os.environ.get("RP_ID", "localhost")
 RP_NAME    = "栄養記録アプリ"
 APP_ORIGIN = os.environ.get("APP_ORIGIN", "http://localhost:8080")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 ANALYZE_PROMPT = """この食事の画像を分析し、以下のJSON形式のみで返答してください。説明文・コードブロック記法は不要です。
 
@@ -486,6 +489,93 @@ def delete_meal(meal_id):
         if not user:
             return jsonify({"ok": False, "error": "ログインが必要です"}), 401
         _run(f"DELETE FROM meals WHERE id = {PH} AND user_id = {PH}", (meal_id, user["id"]))
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/slack/post", methods=["POST"])
+def slack_post():
+    try:
+        if not get_current_user():
+            return jsonify({"ok": False, "error": "ログインが必要です"}), 401
+        if not SLACK_WEBHOOK_URL:
+            return jsonify({"ok": False, "error": "Slack Webhook URLが設定されていません"}), 500
+
+        d = request.get_json()
+        date       = d.get("date", "")
+        nickname   = d.get("nickname", "")
+        foods      = d.get("foods", [])
+        total      = d.get("total", {})
+        variance   = d.get("variance")
+        rank       = d.get("rank")
+        total_count = d.get("total_count")
+        avg_variance = d.get("avg_variance")
+        deficient  = d.get("deficient", [])  # [{label, pct, foods, dishes}]
+
+        # 食材リスト
+        food_text = "、".join(f"{f['name']} {f['amount_g']}g" for f in foods) or "（なし）"
+
+        # 主要栄養素の充足率
+        MACRO_KEYS = [
+            ("calories", "カロリー"), ("protein_g", "タンパク質"),
+            ("fat_g", "脂質"), ("carbs_g", "炭水化物"),
+            ("fiber_g", "食物繊維"), ("salt_g", "食塩"),
+        ]
+        MACRO_TARGETS = {
+            "calories": 2000, "protein_g": 50, "fat_g": 60,
+            "carbs_g": 250, "fiber_g": 21, "salt_g": 7.5,
+        }
+        macro_parts = []
+        for key, label in MACRO_KEYS:
+            val = total.get(key, 0)
+            tgt = MACRO_TARGETS[key]
+            pct = round(val / tgt * 100) if tgt else 0
+            macro_parts.append(f"{label} {pct}%")
+        macro_text = " | ".join(macro_parts)
+
+        # バランススコア
+        score_parts = []
+        if variance is not None:
+            score_parts.append(f"ばらつき: {variance:,.1f}")
+        if rank is not None and total_count is not None:
+            score_parts.append(f"全体ランキング: {rank}位 / {total_count}件中")
+        if avg_variance is not None:
+            score_parts.append(f"全体平均ばらつき: {avg_variance:,.1f}")
+        score_text = "　".join(score_parts) if score_parts else "（未保存）"
+
+        # 不足栄養素のおすすめ
+        def_lines = []
+        for item in deficient:
+            food_tags = "・".join(item.get("foods", []))
+            dish_tags = "・".join(item.get("dishes", []))
+            parts = []
+            if food_tags:
+                parts.append(f"食材: {food_tags}")
+            if dish_tags:
+                parts.append(f"料理: {dish_tags}")
+            def_lines.append(f"{item['label']} ({item['pct']}%) — {' / '.join(parts)}")
+        def_text = "\n".join(def_lines) if def_lines else "不足栄養素なし"
+
+        header = f":fork_and_knife: *食事記録 — {date}*"
+        if nickname:
+            header += f"  |  {nickname}"
+
+        text = (
+            f"{header}\n\n"
+            f"*検出食材*\n{food_text}\n\n"
+            f"*主要栄養素の充足率*\n{macro_text}\n\n"
+            f"*バランススコア（栄養素のばらつき）*\n{score_text}\n\n"
+            f"*不足栄養素のおすすめ*\n{def_text}"
+        )
+
+        resp = http_requests.post(
+            SLACK_WEBHOOK_URL,
+            json={"text": text},
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({"ok": False, "error": f"Slack error: {resp.text}"}), 500
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500

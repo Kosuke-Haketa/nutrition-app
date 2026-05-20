@@ -271,6 +271,23 @@ h1 {
 .btn-save:hover { background: #1565c0; }
 .btn-save:disabled { background: #b0bec5; cursor: not-allowed; }
 
+.btn-slack {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 14px;
+  background: #4A154B;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-slack:hover { background: #3a0f3b; }
+.btn-slack:disabled { background: #b0bec5; cursor: not-allowed; }
+
 .save-msg {
   text-align: center;
   color: #1976d2;

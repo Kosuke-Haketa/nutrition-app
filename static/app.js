@@ -88,8 +88,10 @@ const ALL_TARGETS = { ...DAILY_TARGETS, ...VITAMIN_TARGETS };
 
 let currentFoods = [];
 let currentTotal = {};
+let currentDate = "";
 let imageBase64 = "";
 let imageMediaType = "image/jpeg";
+let currentRankingInfo = {};
 
 // --- 認証 ---
 
@@ -403,7 +405,9 @@ async function saveResult() {
     const text = await res.text();
     const data = JSON.parse(text);
     if (!data.ok) throw new Error("サーバーエラー: " + text);
+    currentDate = document.getElementById("mealDate").value || todayStr();
     if (data.rank !== undefined) {
+      currentRankingInfo = { rank: data.rank, total: data.total, avg_variance: data.avg_variance };
       const el = document.getElementById("rankingResult");
       if (el) {
         el.innerHTML = `全体ランキング: <strong>${data.rank}位 / ${data.total}件中</strong><br><span class="balance-avg">全体平均ばらつき: ${data.avg_variance.toLocaleString()}</span>`;
@@ -411,8 +415,57 @@ async function saveResult() {
       }
     }
     document.getElementById("saveMsg").style.display = "block";
+    const slackBtn = document.getElementById("slackBtn");
+    if (slackBtn) slackBtn.style.display = "inline-block";
   } catch (err) {
     box.textContent = "[" + err.name + "] " + err.message;
+    box.style.display = "block";
+    btn.disabled = false;
+  }
+}
+
+// --- Slack投稿 ---
+async function postToSlack() {
+  const btn = document.getElementById("slackBtn");
+  const msg = document.getElementById("slackMsg");
+  const box = document.getElementById("errorBox");
+  btn.disabled = true;
+  box.style.display = "none";
+
+  const deficient = detectDeficientNutrients(currentTotal).map(({ label, pct, suggestion }) => ({
+    label, pct,
+    foods: pickRandom(suggestion.foods, 3),
+    dishes: pickRandom(suggestion.dishes, 2),
+  }));
+
+  // ニックネームはページに表示されている要素から取得
+  const nicknameEl = document.getElementById("userNickname");
+  const nickname = nicknameEl ? nicknameEl.textContent.trim() : "";
+
+  const body = {
+    date: currentDate,
+    nickname,
+    foods: currentFoods,
+    total: currentTotal,
+    variance: calculateVariance(currentTotal),
+    rank: currentRankingInfo.rank,
+    total_count: currentRankingInfo.total,
+    avg_variance: currentRankingInfo.avg_variance,
+    deficient,
+  };
+
+  try {
+    const res = await fetch(window.location.origin + "/api/slack/post", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "投稿に失敗しました");
+    if (msg) msg.style.display = "block";
+    btn.disabled = false;
+  } catch (err) {
+    box.textContent = "[Slack] " + err.message;
     box.style.display = "block";
     btn.disabled = false;
   }
