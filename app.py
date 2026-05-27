@@ -392,6 +392,11 @@ def analyze():
         return jsonify({"error": "画像データがありません"}), 400
     if "," in image_data:
         image_data = image_data.split(",", 1)[1]
+    image_data = image_data.replace(" ", "").replace("\n", "").replace("\r", "")
+    # Base64パディング補完
+    missing = len(image_data) % 4
+    if missing:
+        image_data += "=" * (4 - missing)
     image_data, media_type = compress_image(image_data, media_type)
     try:
         response = client.messages.create(
@@ -412,6 +417,8 @@ def analyze():
         print(f"[analyze] JSON parse error: {e!r}, raw: {text[:300]}")
         return jsonify({"error": "解析結果のパースに失敗しました"}), 500
     except Exception as e:
+        import traceback
+        print(f"[analyze] error: {e!r}\n{traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 
