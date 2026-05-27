@@ -403,11 +403,13 @@ def analyze():
             ]}],
         )
         text = response.content[0].text.strip()
+        text = re.sub(r"```(?:json)?\s*", "", text).replace("```", "")
         match = re.search(r"\{[\s\S]*\}", text)
         if match:
             text = match.group(0)
         return jsonify(json.loads(text))
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[analyze] JSON parse error: {e!r}, raw: {text[:300]}")
         return jsonify({"error": "解析結果のパースに失敗しました"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
